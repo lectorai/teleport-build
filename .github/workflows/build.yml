@@ -77,5 +77,6 @@ jobs:
     uses: ./.github/workflows/image.yml
     with:
       version: ${{ inputs.version }}
+    secrets: inherit
     permissions:
       contents: read
