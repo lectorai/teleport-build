@@ -79,4 +79,3 @@ jobs:
       version: ${{ inputs.version }}
     permissions:
       contents: read
-      packages: write

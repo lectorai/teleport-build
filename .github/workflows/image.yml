@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   image:
@@ -40,9 +39,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" --pattern "teleport-$VERSION-linux-amd64-bin.tar.gz"
 
-      - name: Build and push
+      - name: Build image
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/teleport:${VERSION#v}"
-          echo "${{ github.token }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker build --build-arg RELEASE_ARCHIVE="teleport-$VERSION-linux-amd64-bin.tar.gz" -t "$image" .
-          docker push "$image"
+          docker build --build-arg RELEASE_ARCHIVE="teleport-$VERSION-linux-amd64-bin.tar.gz" -t "teleport:${VERSION#v}" .
+          docker save "teleport:${VERSION#v}" | gzip > "teleport-image-$VERSION-linux-amd64.tar.gz"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: image
+          path: teleport-image-*.tar.gz
+          compression-level: 0
