@@ -1,0 +1,82 @@
+name: Build Teleport
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Teleport release tag to build, e.g. v18.11.10
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Validate version
+        run: '[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION"; exit 1; }'
+
+      # The buildbox images and Go/Rust caches don't fit into the runner's default free disk.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/checkout@v5
+        with:
+          repository: gravitational/teleport
+          ref: ${{ inputs.version }}
+
+      # Self-built binaries are AGPL-3.0; the Community Edition license only covers
+      # Gravitational's own builds. The release archive target copies this file in.
+      - name: Ship AGPL license in the archive
+        run: cp LICENSE build.assets/LICENSE-community
+
+      # release-amd64 is upstream's own release target (CentOS 7 buildbox with devtoolset,
+      # static libfido2, PIV), so the binaries match the official ones.
+      # With CI=true, build.assets mounts $GOCACHE into the buildboxes and breaks on an empty value.
+      # We don't sign artifacts, so teleport-update gets no embedded verification keys
+      # (TELEPORT_UPDATE_DEV_BUILD). It reaches the inner make through MAKEFLAGS.
+      - name: Build release archives
+        env:
+          GOCACHE: ${{ runner.temp }}/gocache
+        run: |
+          mkdir -p "$GOCACHE"
+          make -C build.assets release-amd64 TELEPORT_UPDATE_DEV_BUILD=1
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: release
+          path: build/artifacts/*.tar.gz
+
+  # Separate job so a failed publish can be retried ("Re-run failed jobs") without the
+  # hour-long build.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: release
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum *.tar.gz > checksums.txt
+          gh release create "$VERSION" *.tar.gz checksums.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Teleport $VERSION (AGPL build)" \
+            --notes "Built from https://github.com/gravitational/teleport/tree/$VERSION"
+
+  image:
+    needs: publish
+    uses: ./.github/workflows/image.yml
+    with:
+      version: ${{ inputs.version }}
+    permissions:
+      contents: read
+      packages: write

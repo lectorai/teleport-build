@@ -1,0 +1,48 @@
+name: Build Teleport image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag of this repo to package, e.g. v18.11.10
+        required: true
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Validate version
+        run: '[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION"; exit 1; }'
+
+      - uses: actions/checkout@v5
+
+      # Upstream's fetch-debs helper stages the runtime libraries for the distroless image.
+      - uses: actions/checkout@v5
+        with:
+          repository: gravitational/teleport
+          ref: ${{ inputs.version }}
+          path: upstream
+          sparse-checkout: build.assets/charts
+
+      - name: Download release archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" --pattern "teleport-$VERSION-linux-amd64-bin.tar.gz"
+
+      - name: Build and push
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER}/teleport:${VERSION#v}"
+          echo "${{ github.token }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build --build-arg RELEASE_ARCHIVE="teleport-$VERSION-linux-amd64-bin.tar.gz" -t "$image" .
+          docker push "$image"
