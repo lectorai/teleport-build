@@ -7,7 +7,7 @@ Teleport's source is AGPL-3.0. Gravitational's own prebuilt Community Edition bi
 ## What is built
 
 - **Release archives** (linux-amd64): `teleport`, `tctl`, `tsh`, `tbot`, `fdpass-teleport` and `teleport-update`, built with upstream's own release target `make -C build.assets release-amd64` (CentOS 7 buildbox, same build tags as the official release, static libfido2). Published as GitHub releases of this repository, tagged like upstream (e.g. `v18.11.10`), with `checksums.txt`.
-- **Container image** `teleport:<version>` (version without `v`), pushed to `europe-west3-docker.pkg.dev/lector-ai/images/teleport` (needs the repository secret `GOOGLE_APPLICATION_CREDENTIALS_JSON_BASE64`) and also provided as a `docker save` archive in the workflow run's `image` artifact (`docker load < teleport-image-*.tar.gz`). The `Dockerfile` mirrors upstream's `build.assets/charts/Dockerfile-distroless` (distroless base, dumb-init, PAM/audit libraries, same entrypoint) and takes the binaries from the release archive.
+- **Container image** `teleport:<version>` (version without `v`), pushed to `europe-west3-docker.pkg.dev/lector-ai/images/teleport` and also provided as a `docker save` archive in the workflow run's `image` artifact (`docker load < teleport-image-*.tar.gz`). The `Dockerfile` mirrors upstream's `build.assets/charts/Dockerfile-distroless` (distroless base, dumb-init, PAM/audit libraries, same entrypoint) and takes the binaries from the release archive.
 
 The archives and the image ship the AGPL-3.0 text in place of the Community Edition license.
 

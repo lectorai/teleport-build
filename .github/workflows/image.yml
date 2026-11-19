@@ -50,9 +50,7 @@ jobs:
           path: teleport-image-*.tar.gz
           compression-level: 0
 
-      # TODO(Jonas): add the repository secret GOOGLE_APPLICATION_CREDENTIALS_JSON_BASE64
-      # (same service account key as the org secret, which private repos only can see).
-      # Until then this step fails on purpose.
+      # Repository secret: the org secret of the same name only reaches private repositories.
       - name: Push to Artifact Registry
         env:
           REGISTRY_PASSWORD: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON_BASE64 }}
